@@ -1,0 +1,29 @@
+{
+  "name": "@hashchain/shielded-pool-model",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Research reference model of a note-based shielded pool: commitments, nullifiers, a Merkle tree with a root history window, partial withdrawals and an optional association set. Not a working pool.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HashChainL0/shielded-pool-model"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "example:deposit-withdraw": "npm run --silent build && node dist/examples/deposit-withdraw.js",
+    "example:partial-withdraw": "npm run --silent build && node dist/examples/partial-withdraw.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
