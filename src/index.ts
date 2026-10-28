@@ -3,3 +3,4 @@ export * from "./errors.js";
 export * from "./note.js";
 export * from "./merkle.js";
 export * from "./pool.js";
+export * from "./associationSet.js";

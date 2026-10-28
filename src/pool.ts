@@ -1,12 +1,16 @@
+import { verifyAssociation, type AssociationEvidence, type AssociationSet } from "./associationSet.js";
 import {
   AssetMismatchError,
+  AssociationRequiredError,
   ChangeMismatchError,
   DoubleSpendError,
   DuplicateCommitmentError,
   InvalidInclusionProofError,
   InvalidRequestError,
+  NotInAssociationSetError,
   NullifierMismatchError,
   StaleRootError,
+  UnknownAssociationRootError,
   ValueMismatchError,
   WrongKeyError,
 } from "./errors.js";
@@ -31,6 +35,10 @@ import {
 export interface PoolOptions {
   readonly depth?: number;
   readonly rootHistorySize?: number;
+  /** Depth of association set trees this pool accepts. Defaults to `depth`. */
+  readonly associationDepth?: number;
+  /** When true, every withdrawal must carry association evidence. Defaults to false. */
+  readonly requireAssociation?: boolean;
 }
 
 export interface DepositResult {
@@ -69,6 +77,11 @@ export interface WithdrawRequest {
   readonly recipient: string;
   /** Commitment of the change note, or `null` when the whole note is spent. */
   readonly changeCommitment: Commitment | null;
+  /**
+   * Optional proof that the origin of the spent note is on an association set.
+   * Required when the pool was created with `requireAssociation`.
+   */
+  readonly association?: AssociationEvidence;
   readonly witness: WithdrawWitness;
 }
 
@@ -95,12 +108,20 @@ export class Pool {
   private readonly known = new Set<Commitment>();
   private readonly balances = new Map<bigint, bigint>();
   private readonly fees = new Map<bigint, bigint>();
+  // Stand-in for a label bound into the note commitment: the deposit a note
+  // descends from. Change notes inherit the label of the note they came from.
+  private readonly labels = new Map<Commitment, Commitment>();
+  private readonly associationRoots = new Set<Hash>();
+  private readonly associationDepth: number;
+  private readonly requireAssociation: boolean;
 
   constructor(options: PoolOptions = {}) {
     this.tree = new MerkleTree({
       depth: options.depth ?? DEFAULT_DEPTH,
       rootHistorySize: options.rootHistorySize ?? DEFAULT_ROOT_HISTORY,
     });
+    this.associationDepth = options.associationDepth ?? this.tree.depth;
+    this.requireAssociation = options.requireAssociation ?? false;
   }
 
   get depth(): number {
@@ -141,6 +162,26 @@ export class Pool {
     return this.fees.get(assetId) ?? 0n;
   }
 
+  /** Accept an association root published by a list curator. */
+  acceptAssociationRoot(root: Hash): void {
+    if (!isHash(root)) throw new RangeError("root must be 64 lowercase hex characters");
+    this.associationRoots.add(root);
+  }
+
+  /** Stop accepting an association root, for example after an entry is removed from the list. */
+  retireAssociationRoot(root: Hash): void {
+    this.associationRoots.delete(root);
+  }
+
+  isAssociationRootAccepted(root: Hash): boolean {
+    return this.associationRoots.has(root);
+  }
+
+  /** The deposit commitment a note descends from, or `undefined` for a commitment not in the tree. */
+  labelOf(c: Commitment): Commitment | undefined {
+    return this.labels.get(c);
+  }
+
   /** Inclusion proof against the current root. */
   proveInclusion(leafIndex: number): MerkleProof {
     return this.tree.prove(leafIndex);
@@ -150,6 +191,7 @@ export class Pool {
     assertValidNote(note);
     const c = commitment(note);
     this.insertCommitment(c);
+    this.labels.set(c, c);
     this.credit(this.balances, note.assetId, note.value);
     const leafIndex = this.tree.size - 1;
     return { leafIndex, commitment: c, root: this.tree.root() };
@@ -184,12 +226,15 @@ export class Pool {
       throw new ValueMismatchError();
     }
 
+    this.checkAssociation(request, spentCommitment);
+
     // All checks passed. Insert the change first: it is the only step that can
     // still fail (duplicate commitment, full tree), and it must not leave a
     // published nullifier behind.
     let changeLeafIndex: number | null = null;
     if (request.changeCommitment !== null) {
       this.insertCommitment(request.changeCommitment);
+      this.labels.set(request.changeCommitment, this.labels.get(spentCommitment) as Commitment);
       changeLeafIndex = this.tree.size - 1;
     }
     this.spent.add(request.nullifier);
@@ -204,6 +249,17 @@ export class Pool {
       changeLeafIndex,
       root: this.tree.root(),
     };
+  }
+
+  private checkAssociation(request: WithdrawRequest, spent: Commitment): void {
+    const evidence = request.association;
+    if (evidence === undefined) {
+      if (this.requireAssociation) throw new AssociationRequiredError();
+      return;
+    }
+    if (!this.associationRoots.has(evidence.root)) throw new UnknownAssociationRootError();
+    const label = this.labels.get(spent) as Commitment;
+    if (!verifyAssociation(label, evidence, this.associationDepth)) throw new NotInAssociationSetError();
   }
 
   private checkShape(request: WithdrawRequest): void {
@@ -267,6 +323,8 @@ export interface BuildWithdrawParams {
   readonly changeOwnerKey?: Hash;
   /** Blinding of the change note. Defaults to a random value. */
   readonly changeBlinding?: bigint;
+  /** Attach evidence from this set. Throws `NotInAssociationSetError` if the note origin is not listed. */
+  readonly associationSet?: AssociationSet;
 }
 
 export interface BuiltWithdrawal {
@@ -307,6 +365,9 @@ export function buildWithdrawRequest(pool: Pool, params: BuildWithdrawParams): B
     fee,
     recipient: params.recipient,
     changeCommitment: change !== null ? commitment(change) : null,
+    ...(params.associationSet !== undefined
+      ? { association: params.associationSet.prove(pool.labelOf(commitment(params.note)) as Commitment) }
+      : {}),
     witness,
   };
   return { request, change };
