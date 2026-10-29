@@ -203,3 +203,69 @@ describe("inclusion proofs", () => {
     expect(computeRootFromPath(p.leaf, p.index, p.siblings)).toBe(t.root());
   });
 });
+
+describe("tree properties across depths", () => {
+  it("every leaf of a full tree verifies at depths 1 to 6", () => {
+    for (let depth = 1; depth <= 6; depth++) {
+      const t = new MerkleTree({ depth });
+      for (let i = 0; i < t.capacity; i++) t.insert(leaf(i));
+      for (let i = 0; i < t.capacity; i++) {
+        const p = t.prove(i);
+        expect(p.index).toBe(i);
+        expect(p.siblings).toHaveLength(depth);
+        expect(verifyMerkleProof(p, depth)).toBe(true);
+      }
+    }
+  });
+
+  it("flipping one sibling of any proof breaks it", () => {
+    const t = new MerkleTree({ depth: 5 });
+    for (let i = 0; i < 11; i++) t.insert(leaf(i));
+    for (let i = 0; i < 11; i++) {
+      const p = t.prove(i);
+      for (let level = 0; level < p.siblings.length; level++) {
+        const siblings = p.siblings.map((s, k) => (k === level ? leaf(1000 + k) : s));
+        expect(verifyMerkleProof({ ...p, siblings })).toBe(false);
+      }
+    }
+  });
+
+  it("a proof does not verify at any other leaf index", () => {
+    const t = new MerkleTree({ depth: 4 });
+    for (let i = 0; i < 9; i++) t.insert(leaf(i));
+    const p = t.prove(5);
+    for (let other = 0; other < t.capacity; other++) {
+      expect(verifyMerkleProof({ ...p, index: other })).toBe(other === 5);
+    }
+  });
+
+  it("the root only depends on the leaves and their order, not the history window", () => {
+    const a = new MerkleTree({ depth: 5, rootHistorySize: 1 });
+    const b = new MerkleTree({ depth: 5, rootHistorySize: 50 });
+    for (let i = 0; i < 17; i++) {
+      a.insert(leaf(i));
+      b.insert(leaf(i));
+      expect(a.root()).toBe(b.root());
+    }
+  });
+
+  it("trees of different depth never share a root for the same leaves", () => {
+    const roots = new Set<Hash>();
+    for (let depth = 2; depth <= 8; depth++) {
+      const t = new MerkleTree({ depth });
+      t.insert(leaf(0));
+      t.insert(leaf(1));
+      roots.add(t.root());
+    }
+    expect(roots.size).toBe(7);
+  });
+
+  it("recentRoots returns a copy that cannot change the tree", () => {
+    const t = new MerkleTree({ depth: 3, rootHistorySize: 3 });
+    t.insert(leaf(0));
+    const roots = t.recentRoots() as Hash[];
+    roots.length = 0;
+    expect(t.recentRoots()).toHaveLength(2);
+    expect(t.isKnownRoot(t.root())).toBe(true);
+  });
+});
