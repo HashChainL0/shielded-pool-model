@@ -34,6 +34,7 @@ export function computeZeroHashes(depth: number): Hash[] {
   return zeros;
 }
 
+/** Root of a tree of the given depth with no leaves. */
 export function emptyRoot(depth: number = DEFAULT_DEPTH): Hash {
   return computeZeroHashes(depth)[depth] as Hash;
 }
@@ -98,6 +99,7 @@ export class MerkleTree {
     this.history = [this.zeroHashes[depth] as Hash];
   }
 
+  /** Most leaves the tree can hold, `2 ** depth`. */
   get capacity(): number {
     return 2 ** this.depth;
   }
@@ -107,6 +109,7 @@ export class MerkleTree {
     return (this.levels[0] as Hash[]).length;
   }
 
+  /** Current root. */
   root(): Hash {
     return this.history[this.history.length - 1] as Hash;
   }
@@ -116,6 +119,7 @@ export class MerkleTree {
     return [...this.history];
   }
 
+  /** True when the root is the current root or one of the retained earlier roots. */
   isKnownRoot(root: Hash): boolean {
     return this.history.includes(root);
   }
@@ -153,6 +157,7 @@ export class MerkleTree {
     return { leaf: this.nodeAt(0, index), index, siblings, root: this.root() };
   }
 
+  /** The leaf at an index, or `undefined` when nothing is inserted there. */
   leafAt(index: number): Hash | undefined {
     return (this.levels[0] as Hash[])[index];
   }

@@ -124,6 +124,7 @@ export class Pool {
     this.requireAssociation = options.requireAssociation ?? false;
   }
 
+  /** Depth of the commitment tree. */
   get depth(): number {
     return this.tree.depth;
   }
@@ -133,22 +134,27 @@ export class Pool {
     return this.tree.size;
   }
 
+  /** Number of nullifiers published so far, one per spent note. */
   get nullifierCount(): number {
     return this.spent.size;
   }
 
+  /** Current root of the commitment tree. */
   root(): Hash {
     return this.tree.root();
   }
 
+  /** Roots a withdrawal may still be proven against, oldest first. */
   recentRoots(): readonly Hash[] {
     return this.tree.recentRoots();
   }
 
+  /** True when the root is inside the history window. */
   isKnownRoot(root: Hash): boolean {
     return this.tree.isKnownRoot(root);
   }
 
+  /** True when the nullifier has been published by an accepted withdrawal. */
   isSpent(n: Nullifier): boolean {
     return this.spent.has(n);
   }
@@ -158,6 +164,7 @@ export class Pool {
     return this.balances.get(assetId) ?? 0n;
   }
 
+  /** Total fees paid out for an asset, which are not part of the pool balance. */
   feesCollected(assetId: bigint): bigint {
     return this.fees.get(assetId) ?? 0n;
   }
@@ -173,6 +180,7 @@ export class Pool {
     this.associationRoots.delete(root);
   }
 
+  /** True when the pool currently accepts the association root. */
   isAssociationRootAccepted(root: Hash): boolean {
     return this.associationRoots.has(root);
   }
@@ -187,6 +195,11 @@ export class Pool {
     return this.tree.prove(leafIndex);
   }
 
+  /**
+   * Take a note in. Appends its commitment and credits the public balance.
+   * Throws `InvalidNoteError`, `DuplicateCommitmentError` or `TreeFullError`,
+   * and changes nothing when it throws.
+   */
   deposit(note: Note): DepositResult {
     assertValidNote(note);
     const c = commitment(note);
