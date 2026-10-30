@@ -76,6 +76,7 @@ Taken from the spec: note, commitment, nullifier, nullifier key, Merkle tree, an
 | `test/` | Vitest suites |
 | `docs/MODEL.md` | What is modeled, what is not, and the checks that stand in for a proof |
 | `docs/API.md` | Public exports by module, conventions and error handling |
+| `docs/GLOSSARY.md` | The terms used in the code and the docs |
 
 ## Spec
 
