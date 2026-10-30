@@ -4,6 +4,7 @@ import {
   AssociationSet,
   NotInAssociationSetError,
   Pool,
+  TreeFullError,
   UnknownAssociationRootError,
   buildWithdrawRequest,
   commitment,
@@ -222,5 +223,85 @@ describe("withdrawal with an association set", () => {
       associationSet: shallow,
     });
     expect(() => pool.withdraw(request)).toThrow(NotInAssociationSetError);
+  });
+});
+
+describe("association set edge cases", () => {
+  it("uses the default depth when none is given", () => {
+    const s = new AssociationSet();
+    expect(s.depth).toBe(20);
+    expect(s.root()).toBe(emptyRoot(20));
+  });
+
+  it("throws TreeFullError once the set is full and keeps existing members", () => {
+    const s = new AssociationSet({ depth: 2 });
+    const labels = [1, 2, 3, 4].map((n) => hashDomain("test", n));
+    labels.forEach((l) => s.add(l));
+    expect(() => s.add(hashDomain("test", 5))).toThrow(TreeFullError);
+    expect(s.size).toBe(4);
+    for (const l of labels) expect(verifyAssociation(l, s.prove(l), 2)).toBe(true);
+  });
+
+  it("adding to a full set that repeats a member is still a no-op", () => {
+    const s = new AssociationSet({ depth: 1 });
+    const a = hashDomain("test", 1);
+    s.add(a);
+    s.add(hashDomain("test", 2));
+    expect(s.add(a)).toBe(0);
+    expect(s.size).toBe(2);
+  });
+
+  it("evidence taken before a new member is added stays valid against its own root", () => {
+    const s = new AssociationSet({ depth: 4 });
+    const a = hashDomain("test", 1);
+    s.add(a);
+    const before = s.prove(a);
+    s.add(hashDomain("test", 2));
+    const after = s.prove(a);
+    expect(before.root).not.toBe(after.root);
+    expect(verifyAssociation(a, before, 4)).toBe(true);
+    expect(verifyAssociation(a, after, 4)).toBe(true);
+    expect(before.index).toBe(after.index);
+  });
+
+  it("evidence does not verify for a different label or a tampered root", () => {
+    const s = new AssociationSet({ depth: 4 });
+    const a = hashDomain("test", 1);
+    const b = hashDomain("test", 2);
+    s.add(a);
+    s.add(b);
+    const ev = s.prove(a);
+    expect(verifyAssociation(b, ev, 4)).toBe(false);
+    expect(verifyAssociation(a, { ...ev, root: b }, 4)).toBe(false);
+    expect(verifyAssociation(a, { ...ev, index: 1 }, 4)).toBe(false);
+  });
+
+  it("members keep their index in insertion order", () => {
+    const s = new AssociationSet({ depth: 4 });
+    const labels = [10, 11, 12].map((n) => hashDomain("test", n));
+    labels.forEach((l, i) => expect(s.add(l)).toBe(i));
+    labels.forEach((l, i) => expect(s.prove(l).index).toBe(i));
+  });
+
+  it("the pool refuses a malformed association root and ignores retiring an unknown one", () => {
+    const pool = new Pool({ depth: 4 });
+    expect(() => pool.acceptAssociationRoot("nope")).toThrow(RangeError);
+    const r = hashDomain("test", 1);
+    expect(() => pool.retireAssociationRoot(r)).not.toThrow();
+    expect(pool.isAssociationRootAccepted(r)).toBe(false);
+  });
+
+  it("the pool can accept two roots at once and retire them one by one", () => {
+    const { pool, set, goodDep } = world();
+    const first = set.root();
+    set.add(hashDomain("test", 42));
+    const second = set.root();
+    pool.acceptAssociationRoot(second);
+    expect(pool.isAssociationRootAccepted(first)).toBe(true);
+    expect(pool.isAssociationRootAccepted(second)).toBe(true);
+    pool.retireAssociationRoot(first);
+    expect(pool.isAssociationRootAccepted(first)).toBe(false);
+    expect(pool.isAssociationRootAccepted(second)).toBe(true);
+    expect(pool.labelOf(goodDep.commitment)).toBe(goodDep.commitment);
   });
 });
