@@ -4,6 +4,19 @@ All notable changes to this repository are documented in this file.
 
 Versions describe the state of the model, not a deployed protocol.
 
+## [Unreleased]
+
+### Added
+
+- Property-style Merkle tree tests across depths and positions.
+- Association set edge-case tests for capacity, evidence and root handling.
+- Pool accounting tests for assets, fees and chained partial withdrawals.
+- `docs/GLOSSARY.md`, a list of the terms used in the code and the docs.
+
+### Changed
+
+- JSDoc on the pool and Merkle tree accessors. No behavior change.
+
 ## [0.1.0] - 2026-10-28
 
 ### Added
