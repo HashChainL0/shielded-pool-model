@@ -12,6 +12,7 @@ Versions describe the state of the model, not a deployed protocol.
 - Association set edge-case tests for capacity, evidence and root handling.
 - Pool accounting tests for assets, fees and chained partial withdrawals.
 - `docs/GLOSSARY.md`, a list of the terms used in the code and the docs.
+- `examples/rejections.ts` and the `example:rejections` npm script. It shows the error code returned for a wrong key, a stale root and a replayed request.
 
 ### Changed
 

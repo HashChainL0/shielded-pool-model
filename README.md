@@ -35,6 +35,7 @@ npm run build
 
 npm run example:deposit-withdraw
 npm run example:partial-withdraw
+npm run example:rejections
 ```
 
 Examples compile to `dist/` with `tsc` and run with plain `node`. There are no runtime dependencies.
