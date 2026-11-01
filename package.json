@@ -19,7 +19,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "example:deposit-withdraw": "npm run --silent build && node dist/examples/deposit-withdraw.js",
-    "example:partial-withdraw": "npm run --silent build && node dist/examples/partial-withdraw.js"
+    "example:partial-withdraw": "npm run --silent build && node dist/examples/partial-withdraw.js",
+    "example:rejections": "npm run --silent build && node dist/examples/rejections.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
