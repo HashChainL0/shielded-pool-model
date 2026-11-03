@@ -55,6 +55,8 @@ An association set is an allow-list of deposit commitments, kept as its own Merk
 
 Funds must keep their origin across change. The model keeps a table in the pool from each commitment to the deposit it descends from, and a change note takes the origin of the note it came from. A real design would bind this origin into the note commitment so the pool does not need the table. Here the table is a stand-in and it makes the pool learn the origin, which a real pool would not.
 
+The network-level proposal for association sets is [HIP-6](https://github.com/HashChainL0/hips/blob/main/hips/hip-0006.md). It makes evidence optional for every withdrawal, while this model also lets a pool require it with `requireAssociation`, so both shapes can be tested.
+
 ## What is not modeled
 
 - Zero knowledge. The witness is given to the pool. Nothing is hidden.
