@@ -41,6 +41,10 @@ Only after every check passes does the pool change state. The change commitment 
 
 A request proves membership under a root. Appending leaves changes the root, so a request built against an older root stays valid while that root is inside the window and becomes `StaleRootError` after it ages out. The wallet rebuilds the request against the current root. The window length is a pool option.
 
+### Choosing a window length
+
+`rootHistorySize` trades user experience against state. A short window means a request built a few deposits ago is rejected and has to be rebuilt, which is worse on a busy pool and for slow provers. A long window means the pool keeps more roots and a request can refer to an older view of the tree. The model does not pick a value. The tests use small windows on purpose so a root ages out after a handful of deposits, and `npm run example:rejections` shows the `STALE_ROOT` case. The real length is an open question in the [spec](https://github.com/HashChainL0/protocol-spec/blob/main/docs/03-accounts-and-private-transfers.md#open-questions).
+
 ## Partial withdrawal
 
 The whole note is spent, never a part of it. The pool pays `amount` and `fee`, and the remainder becomes a new note whose commitment is appended as a new leaf. That note can be spent later like any other. The change owner key can be a different key.
